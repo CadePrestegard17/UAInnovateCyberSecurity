@@ -306,6 +306,11 @@ def add_data(req: AddDataRequest) -> dict:
     return {"status": "ok", "eventCount": len(event_store)}
 
 
+@app.get("/")
+def root() -> dict:
+    return {"service": "UA Innovate Risk API", "docs": "/docs", "health": "/health"}
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
