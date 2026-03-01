@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   AreaChart,
   Area,
@@ -38,15 +38,74 @@ type Bucket = {
 const COLORS = {
   authSuccess: '#3b82f6',
   dns: '#14b8a6',
-  ipDenials: '#ef4444',
-  firewall: '#f59e0b',
+  ipDenials: '#7dd3fc',
+  firewall: '#fbbf24',
   malware: '#8b5cf6',
 } as const;
+
+const TOOLTIP_LABELS: Record<keyof typeof COLORS, string> = {
+  authSuccess: 'Successful auth',
+  dns: 'DNS events',
+  ipDenials: 'Failed logins',
+  firewall: 'Firewall denials',
+  malware: 'Malware',
+};
+
+const DATA_KEYS = ['authSuccess', 'dns', 'firewall', 'ipDenials', 'malware'] as const;
+type DataKey = (typeof DATA_KEYS)[number];
+
+function isDataKey(k: string): k is DataKey {
+  return DATA_KEYS.includes(k as DataKey);
+}
+
+function TimelineTooltipContent({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ dataKey: string; value?: number; payload: Bucket }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length || !label) return null;
+  const bucket = payload[0]?.payload;
+  const total = bucket?.total ?? 0;
+  return (
+    <div
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 6,
+        padding: '10px 12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+      }}
+    >
+      <div style={{ color: 'var(--text)', marginBottom: 6, fontWeight: 600 }}>
+        {label} — {total} total events
+      </div>
+      {payload.map((entry) => {
+        const key = entry.dataKey;
+        const color = isDataKey(key) ? COLORS[key] : 'var(--text)';
+        const displayLabel = isDataKey(key) ? TOOLTIP_LABELS[key] : key;
+        const value = typeof entry.value === 'number' ? entry.value : 0;
+        return (
+          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, color: color }}>
+            <span>{displayLabel} :</span>
+            <span>{value}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // Start 100% zoomed out (show full range)
 
 export function TimelineChart({ events }: Props) {
   const [brushRange, setBrushRange] = useState<{ startIndex: number; endIndex: number } | null>(null);
+  const [scrollbarDragging, setScrollbarDragging] = useState(false);
+  const scrollbarTrackRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef({ brushStart: 0, clientX: 0 });
 
   const { data, summary } = useMemo(() => {
     const buckets = new Map<string, Bucket>();
@@ -105,6 +164,55 @@ export function TimelineChart({ events }: Props) {
 
   const brushStart = brushRange?.startIndex ?? 0;
   const brushEnd = brushRange?.endIndex ?? Math.max(0, data.length - 1);
+  const span = brushEnd - brushStart + 1;
+  const isZoomedIn = span < data.length;
+
+  const handleScrollbarThumbMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragStartRef.current = { brushStart, clientX: e.clientX };
+      setScrollbarDragging(true);
+    },
+    [brushStart]
+  );
+
+  const handleScrollbarTrackClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget) return;
+      const track = scrollbarTrackRef.current;
+      if (!track || !isZoomedIn || data.length === 0) return;
+      const rect = track.getBoundingClientRect();
+      const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const targetIndex = fraction * (data.length - 1);
+      const newStart = Math.max(0, Math.min(data.length - span, Math.round(targetIndex - span / 2)));
+      const newEnd = Math.min(data.length - 1, newStart + span - 1);
+      setBrushRange({ startIndex: newStart, endIndex: newEnd });
+    },
+    [data.length, isZoomedIn, span]
+  );
+
+  useEffect(() => {
+    if (!scrollbarDragging) return;
+    const track = scrollbarTrackRef.current;
+    const onMove = (e: MouseEvent) => {
+      if (!track || data.length === 0) return;
+      const rect = track.getBoundingClientRect();
+      const trackWidth = rect.width;
+      const { brushStart: start0, clientX: x0 } = dragStartRef.current;
+      const deltaFraction = (e.clientX - x0) / trackWidth;
+      const deltaIndex = Math.round(deltaFraction * data.length);
+      const newStart = Math.max(0, Math.min(data.length - span, start0 + deltaIndex));
+      const newEnd = Math.min(data.length - 1, newStart + span - 1);
+      setBrushRange({ startIndex: newStart, endIndex: newEnd });
+    };
+    const onUp = () => setScrollbarDragging(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [scrollbarDragging, data.length, span]);
 
   if (data.length === 0) {
     return (
@@ -119,7 +227,7 @@ export function TimelineChart({ events }: Props) {
     <div className="timeline-chart">
       <h3>Event intensity over time</h3>
       <p className="timeline-chart__desc">
-        Stacked events per minute (no double-count). Red = failed logins; blue = successful auth; teal = DNS; orange = firewall; purple = malware.
+        Stacked events per minute (no double-count). Light blue = failed logins; blue = successful auth; teal = DNS; orange-yellow = firewall; purple = malware.
       </p>
       {summary && (
         <p className="timeline-chart__summary" role="status">
@@ -167,10 +275,86 @@ export function TimelineChart({ events }: Props) {
         >
           Reset
         </button>
+        {(brushEnd - brushStart + 1) < data.length && (
+          <>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Scroll:</span>
+            <button
+              type="button"
+              disabled={brushStart <= 0}
+              onClick={() =>
+                setBrushRange((prev) => {
+                  const start = prev?.startIndex ?? 0;
+                  const end = prev?.endIndex ?? Math.max(0, data.length - 1);
+                  const span = end - start + 1;
+                  const step = Math.max(1, Math.floor(span * 0.25));
+                  const newStart = Math.max(0, start - step);
+                  const newEnd = Math.min(data.length - 1, newStart + span - 1);
+                  return { startIndex: newStart, endIndex: newEnd };
+                })
+              }
+              style={{ padding: '4px 10px', fontSize: 12, cursor: brushStart <= 0 ? 'not-allowed' : 'pointer', opacity: brushStart <= 0 ? 0.6 : 1 }}
+            >
+              ← Earlier
+            </button>
+            <button
+              type="button"
+              disabled={brushEnd >= data.length - 1}
+              onClick={() =>
+                setBrushRange((prev) => {
+                  const start = prev?.startIndex ?? 0;
+                  const end = prev?.endIndex ?? Math.max(0, data.length - 1);
+                  const span = end - start + 1;
+                  const step = Math.max(1, Math.floor(span * 0.25));
+                  const newEnd = Math.min(data.length - 1, end + step);
+                  const newStart = Math.max(0, newEnd - span + 1);
+                  return { startIndex: newStart, endIndex: newEnd };
+                })
+              }
+              style={{ padding: '4px 10px', fontSize: 12, cursor: brushEnd >= data.length - 1 ? 'not-allowed' : 'pointer', opacity: brushEnd >= data.length - 1 ? 0.6 : 1 }}
+            >
+              Later →
+            </button>
+          </>
+        )}
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
           Showing {brushEnd - brushStart + 1} of {data.length} time buckets
         </span>
       </div>
+      {isZoomedIn && data.length > 0 && (
+        <div
+          ref={scrollbarTrackRef}
+          role="scrollbar"
+          aria-valuenow={brushStart}
+          aria-valuemin={0}
+          aria-valuemax={data.length - 1}
+          aria-label="Timeline position"
+          onClick={handleScrollbarTrackClick}
+          style={{
+            height: 20,
+            marginBottom: 8,
+            background: 'var(--border)',
+            borderRadius: 4,
+            position: 'relative',
+            cursor: 'pointer',
+          }}
+        >
+          <div
+            onMouseDown={handleScrollbarThumbMouseDown}
+            style={{
+              position: 'absolute',
+              left: `${(brushStart / data.length) * 100}%`,
+              width: `${(span / data.length) * 100}%`,
+              top: 2,
+              bottom: 2,
+              minWidth: 24,
+              background: 'var(--text-muted)',
+              borderRadius: 3,
+              cursor: scrollbarDragging ? 'grabbing' : 'grab',
+              pointerEvents: 'auto',
+            }}
+          />
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={320}>
         <AreaChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
           <defs>
@@ -198,19 +382,7 @@ export function TimelineChart({ events }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="minute" tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
           <YAxis tick={{ fontSize: 11 }} stroke="var(--text-muted)" label={{ value: 'Events per minute', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: 'var(--text-muted)' } }} />
-          <Tooltip
-            contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
-            labelStyle={{ color: 'var(--text)' }}
-            labelFormatter={(_, payload) => {
-              const bucket = payload?.[0]?.payload as Bucket | undefined;
-              return bucket ? `${bucket.minute} — ${bucket.total} total events` : '';
-            }}
-            formatter={(value: number, name: string) => {
-              if (typeof value !== 'number' || value === 0) return [null, name];
-              const label = name === 'IP denials' ? 'Failed logins' : name === 'Auth (success)' ? 'Successful auth' : name;
-              return [`${value}`, label];
-            }}
-          />
+          <Tooltip content={<TimelineTooltipContent />} />
           <Legend />
           <Area type="monotone" dataKey="authSuccess" stackId="1" stroke={COLORS.authSuccess} fill="url(#timeline-auth-success)" name="Auth (success)" strokeWidth={1.5} />
           <Area type="monotone" dataKey="dns" stackId="1" stroke={COLORS.dns} fill="url(#timeline-dns)" name="DNS events" strokeWidth={1.5} />

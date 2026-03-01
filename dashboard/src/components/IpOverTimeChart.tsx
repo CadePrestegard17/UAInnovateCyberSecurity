@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   LineChart,
   Line,
@@ -51,6 +51,9 @@ type Props = {
 
 export function IpOverTimeChart({ events }: Props) {
   const [brushRange, setBrushRange] = useState<{ startIndex: number; endIndex: number } | null>(null);
+  const [scrollbarDragging, setScrollbarDragging] = useState(false);
+  const scrollbarTrackRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef({ brushStart: 0, clientX: 0 });
 
   const { data, topIps, safeRanges, allUnsafe, debug } = useMemo(() => {
     const bucketMs = BUCKET_MINUTES * 60 * 1000;
@@ -183,7 +186,55 @@ export function IpOverTimeChart({ events }: Props) {
 
   const brushStart = brushRange?.startIndex ?? 0;
   const brushEnd = brushRange?.endIndex ?? Math.max(0, data.length - 1);
+  const span = brushEnd - brushStart + 1;
+  const isZoomedIn = data.length > 0 && span < data.length;
   const zoomedData = useMemo(() => data.slice(brushStart, brushEnd + 1), [data, brushStart, brushEnd]);
+
+  const handleScrollbarThumbMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragStartRef.current = { brushStart, clientX: e.clientX };
+      setScrollbarDragging(true);
+    },
+    [brushStart]
+  );
+
+  const handleScrollbarTrackClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget) return;
+      const track = scrollbarTrackRef.current;
+      if (!track || !isZoomedIn || data.length === 0) return;
+      const rect = track.getBoundingClientRect();
+      const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const targetIndex = fraction * (data.length - 1);
+      const newStart = Math.max(0, Math.min(data.length - span, Math.round(targetIndex - span / 2)));
+      const newEnd = Math.min(data.length - 1, newStart + span - 1);
+      setBrushRange({ startIndex: newStart, endIndex: newEnd });
+    },
+    [data.length, isZoomedIn, span]
+  );
+
+  useEffect(() => {
+    if (!scrollbarDragging) return;
+    const track = scrollbarTrackRef.current;
+    const onMove = (e: MouseEvent) => {
+      if (!track || data.length === 0) return;
+      const rect = track.getBoundingClientRect();
+      const { brushStart: start0, clientX: x0 } = dragStartRef.current;
+      const deltaFraction = (e.clientX - x0) / rect.width;
+      const deltaIndex = Math.round(deltaFraction * data.length);
+      const newStart = Math.max(0, Math.min(data.length - span, start0 + deltaIndex));
+      const newEnd = Math.min(data.length - 1, newStart + span - 1);
+      setBrushRange({ startIndex: newStart, endIndex: newEnd });
+    };
+    const onUp = () => setScrollbarDragging(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [scrollbarDragging, data.length, span]);
 
   const zoomedSafeRanges = useMemo(
     () =>
@@ -271,10 +322,86 @@ export function IpOverTimeChart({ events }: Props) {
         >
           Reset
         </button>
+        {(brushEnd - brushStart + 1) < data.length && (
+          <>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Scroll:</span>
+            <button
+              type="button"
+              disabled={brushStart <= 0}
+              onClick={() =>
+                setBrushRange((prev) => {
+                  const start = prev?.startIndex ?? 0;
+                  const end = prev?.endIndex ?? Math.max(0, data.length - 1);
+                  const span = end - start + 1;
+                  const step = Math.max(1, Math.floor(span * 0.25));
+                  const newStart = Math.max(0, start - step);
+                  const newEnd = Math.min(data.length - 1, newStart + span - 1);
+                  return { startIndex: newStart, endIndex: newEnd };
+                })
+              }
+              style={{ padding: '4px 10px', fontSize: 12, cursor: brushStart <= 0 ? 'not-allowed' : 'pointer', opacity: brushStart <= 0 ? 0.6 : 1 }}
+            >
+              ← Earlier
+            </button>
+            <button
+              type="button"
+              disabled={brushEnd >= data.length - 1}
+              onClick={() =>
+                setBrushRange((prev) => {
+                  const start = prev?.startIndex ?? 0;
+                  const end = prev?.endIndex ?? Math.max(0, data.length - 1);
+                  const span = end - start + 1;
+                  const step = Math.max(1, Math.floor(span * 0.25));
+                  const newEnd = Math.min(data.length - 1, end + step);
+                  const newStart = Math.max(0, newEnd - span + 1);
+                  return { startIndex: newStart, endIndex: newEnd };
+                })
+              }
+              style={{ padding: '4px 10px', fontSize: 12, cursor: brushEnd >= data.length - 1 ? 'not-allowed' : 'pointer', opacity: brushEnd >= data.length - 1 ? 0.6 : 1 }}
+            >
+              Later →
+            </button>
+          </>
+        )}
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
           Showing {brushEnd - brushStart + 1} of {data.length} buckets
         </span>
       </div>
+      {isZoomedIn && (
+        <div
+          ref={scrollbarTrackRef}
+          role="scrollbar"
+          aria-valuenow={brushStart}
+          aria-valuemin={0}
+          aria-valuemax={data.length - 1}
+          aria-label="Timeline position"
+          onClick={handleScrollbarTrackClick}
+          style={{
+            height: 20,
+            marginBottom: 8,
+            background: 'var(--border)',
+            borderRadius: 4,
+            position: 'relative',
+            cursor: 'pointer',
+          }}
+        >
+          <div
+            onMouseDown={handleScrollbarThumbMouseDown}
+            style={{
+              position: 'absolute',
+              left: `${(brushStart / data.length) * 100}%`,
+              width: `${(span / data.length) * 100}%`,
+              top: 2,
+              bottom: 2,
+              minWidth: 24,
+              background: 'var(--text-muted)',
+              borderRadius: 3,
+              cursor: scrollbarDragging ? 'grabbing' : 'grab',
+              pointerEvents: 'auto',
+            }}
+          />
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={zoomedData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />

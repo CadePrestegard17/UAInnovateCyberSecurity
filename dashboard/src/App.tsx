@@ -196,7 +196,13 @@ export default function App() {
                 <SummaryCards incident={selectedIncident} malware={malware} />
               </section>
               <section className="panel-section">
-                <TimelineChart events={selectedIncident.related_events} />
+                <TimelineChart
+                  events={allEvents.filter(
+                    (e) =>
+                      e.time >= selectedIncident.start &&
+                      e.time <= selectedIncident.end
+                  )}
+                />
               </section>
               <section className="panel-section">
                 <TopTables incident={selectedIncident} auth={auth} dns={dns} firewall={firewall} />
