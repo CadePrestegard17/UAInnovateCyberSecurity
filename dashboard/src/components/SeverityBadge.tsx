@@ -18,7 +18,7 @@ type Props = {
   anchorRef?: React.RefObject<HTMLElement | null>;
 };
 
-export function SeverityBadge({ incident, badgeClassName, hover: controlledHover, anchorRef }: Props) {
+export function SeverityBadge({ incident, badgeClassName, hover: controlledHover, anchorRef: _anchorRef }: Props) {
   const [internalHover, setInternalHover] = useState(false);
   const ownRef = useRef<HTMLSpanElement>(null);
   const hover = controlledHover ?? internalHover;
