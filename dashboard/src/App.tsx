@@ -164,6 +164,12 @@ export default function App() {
 
       <div className="layout">
         <aside className="sidebar">
+          <IncidentList
+            incidents={incidents}
+            selectedId={selectedIncident?.id ?? null}
+            onSelect={setSelectedIncident}
+          />
+          <HowToUse />
           <LoadCsvSection
             dataSource={dataSource}
             onUseBundled={loadBundled}
@@ -171,12 +177,6 @@ export default function App() {
             uploadError={uploadError}
             clearUploadError={() => setUploadError(null)}
           />
-          <IncidentList
-            incidents={incidents}
-            selectedId={selectedIncident?.id ?? null}
-            onSelect={setSelectedIncident}
-          />
-          <HowToUse />
         </aside>
 
         <main className="main main--with-sidebar">
@@ -196,6 +196,9 @@ export default function App() {
                 <SummaryCards incident={selectedIncident} malware={malware} />
               </section>
               <section className="panel-section">
+                <TopTables incident={selectedIncident} auth={auth} dns={dns} firewall={firewall} />
+              </section>
+              <section className="panel-section">
                 <TimelineChart
                   events={allEvents.filter(
                     (e) =>
@@ -203,9 +206,6 @@ export default function App() {
                       e.time <= selectedIncident.end
                   )}
                 />
-              </section>
-              <section className="panel-section">
-                <TopTables incident={selectedIncident} auth={auth} dns={dns} firewall={firewall} />
               </section>
               <section className="panel-section">
                 <TimeCorrelationChart events={allEvents} />
