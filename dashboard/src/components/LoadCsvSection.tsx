@@ -140,36 +140,44 @@ export function LoadCsvSection({
       </div>
 
       <div className="load-csv__inputs">
-        {(['auth', 'dns', 'firewall', 'malware'] as const).map((kind) => (
-          <label key={kind} className="load-csv__input-row">
-            <span className="load-csv__input-label">
-              {kind === 'auth' && 'Auth'}
-              {kind === 'dns' && 'DNS'}
-              {kind === 'firewall' && 'Firewall'}
-              {kind === 'malware' && 'Malware'}
-            </span>
-            <input
-              ref={
-                kind === 'auth'
-                  ? authInputRef
-                  : kind === 'dns'
-                    ? dnsInputRef
-                    : kind === 'firewall'
-                      ? firewallInputRef
-                      : malwareInputRef
-              }
-              type="file"
-              accept=".csv"
-              onChange={handleSingleInputChange(kind)}
-              className="load-csv__input"
-            />
-            {fileStatus[kind] && (
-              <span className="load-csv__input-name" title={fileStatus[kind]}>
-                {fileStatus[kind]}
+        {(['auth', 'dns', 'firewall', 'malware'] as const).map((kind) => {
+          const inputRef =
+            kind === 'auth'
+              ? authInputRef
+              : kind === 'dns'
+                ? dnsInputRef
+                : kind === 'firewall'
+                  ? firewallInputRef
+                  : malwareInputRef;
+          return (
+            <div key={kind} className="load-csv__input-row">
+              <span className="load-csv__input-label">
+                {kind === 'auth' && 'Auth'}
+                {kind === 'dns' && 'DNS'}
+                {kind === 'firewall' && 'Firewall'}
+                {kind === 'malware' && 'Malware'}
               </span>
-            )}
-          </label>
-        ))}
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleSingleInputChange(kind)}
+                className="load-csv__input"
+                aria-label={`Choose ${kind} CSV`}
+              />
+              <button
+                type="button"
+                className="load-csv__choose-btn"
+                onClick={() => inputRef.current?.click()}
+              >
+                Choose file
+              </button>
+              <span className="load-csv__input-name" title={fileStatus[kind] ?? ''}>
+                {fileStatus[kind] ?? 'No file chosen'}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {uploadError && (

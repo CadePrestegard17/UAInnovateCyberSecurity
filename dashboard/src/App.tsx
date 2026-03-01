@@ -117,6 +117,7 @@ export default function App() {
       <div className="app">
         <header className="header">
           <h1 className="header__title">A Little Bit of Hope — SOC Dashboard</h1>
+          <span className="header__version header__version--muted">v{__APP_VERSION__}</span>
           <span className="header__status header__status--muted">Bundled sample data</span>
           <button type="button" className="header__reload" onClick={loadData} disabled>
             Reload Data
@@ -134,6 +135,7 @@ export default function App() {
       <div className="app">
         <header className="header">
           <h1 className="header__title">A Little Bit of Hope — SOC Dashboard</h1>
+          <span className="header__version header__version--muted">v{__APP_VERSION__}</span>
           <span className="header__status header__status--muted">Bundled sample data</span>
           <button type="button" className="header__reload" onClick={loadBundled}>
             Reload Data
@@ -151,6 +153,7 @@ export default function App() {
     <div className="app">
       <header className="header">
         <h1 className="header__title">A Little Bit of Hope — SOC Dashboard</h1>
+        <span className="header__version" title="Dashboard version">v{__APP_VERSION__}</span>
         <span className="header__status" title="Current data source">
           {dataSource === 'bundled' ? 'Bundled sample data' : 'Uploaded files'}
         </span>

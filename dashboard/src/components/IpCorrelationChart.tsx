@@ -160,7 +160,7 @@ export function IpCorrelationChart({ events }: Props) {
           <Tooltip
             contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
             labelStyle={{ color: 'var(--text)' }}
-            formatter={(value: number, name: string) => [`${value} events`, name]}
+            formatter={(value: number | undefined, name: string | undefined) => [`${value ?? 0} events`, name ?? '']}
             labelFormatter={(label) => `IP: ${label}`}
             content={({ active, payload: tooltipPayload, label }) => {
               if (!active || !tooltipPayload?.length || !label) return null;
