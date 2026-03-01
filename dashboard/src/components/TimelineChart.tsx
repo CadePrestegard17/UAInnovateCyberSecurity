@@ -15,6 +15,8 @@ import type { NormalizedEvent } from '../lib/types';
 
 type Props = {
   events: NormalizedEvent[];
+  /** Called when the user changes the brush/zoom range; receives events in the visible time window for risk prediction */
+  onBrushChange?: (eventsInRange: NormalizedEvent[]) => void;
 };
 
 /** Count as IP denial only when auth action is "Failed Login" (case-insensitive, extra spaces normalized). */
@@ -99,9 +101,46 @@ function TimelineTooltipContent({
   );
 }
 
+const MIN_EVENTS_FOR_RISK = 25;
+
+/** Number of events whose time (minute) falls in data[startIndex..endIndex]. */
+function countEventsInRange(
+  startIndex: number,
+  endIndex: number,
+  data: { minute: string }[],
+  events: NormalizedEvent[]
+): number {
+  const visibleMinutes = new Set(
+    data.slice(startIndex, endIndex + 1).map((d) => d.minute)
+  );
+  return events.filter((e) =>
+    visibleMinutes.has(format(e.time, 'yyyy-MM-dd HH:mm'))
+  ).length;
+}
+
+/** Expand [start, end] until it contains at least minEvents (or we hit full range). */
+function clampRangeToMinEvents(
+  startIndex: number,
+  endIndex: number,
+  data: { minute: string }[],
+  events: NormalizedEvent[],
+  minEvents: number
+): { startIndex: number; endIndex: number } {
+  let start = startIndex;
+  let end = endIndex;
+  while (
+    countEventsInRange(start, end, data, events) < minEvents &&
+    (start > 0 || end < data.length - 1)
+  ) {
+    if (end < data.length - 1) end += 1;
+    else if (start > 0) start -= 1;
+  }
+  return { startIndex: start, endIndex: end };
+}
+
 // Start 100% zoomed out (show full range)
 
-export function TimelineChart({ events }: Props) {
+export function TimelineChart({ events, onBrushChange }: Props) {
   const [brushRange, setBrushRange] = useState<{ startIndex: number; endIndex: number } | null>(null);
   const [scrollbarDragging, setScrollbarDragging] = useState(false);
   const scrollbarTrackRef = useRef<HTMLDivElement>(null);
@@ -213,6 +252,17 @@ export function TimelineChart({ events }: Props) {
       window.removeEventListener('mouseup', onUp);
     };
   }, [scrollbarDragging, data.length, span]);
+
+  // When brush/zoom range changes, notify parent with events in the visible window for risk prediction
+  useEffect(() => {
+    if (!onBrushChange || data.length === 0 || events.length === 0) return;
+    const visibleBuckets = data.slice(brushStart, brushEnd + 1);
+    const visibleMinutes = new Set(visibleBuckets.map((d) => d.minute));
+    const eventsInRange = events.filter((e) =>
+      visibleMinutes.has(format(e.time, 'yyyy-MM-dd HH:mm'))
+    );
+    if (eventsInRange.length >= MIN_EVENTS_FOR_RISK) onBrushChange(eventsInRange);
+  }, [brushStart, brushEnd, data, events, onBrushChange]);
 
   if (data.length === 0) {
     return (
@@ -400,11 +450,21 @@ export function TimelineChart({ events }: Props) {
               endIndex={brushEnd}
               onChange={(next) => {
                 if (next && typeof next.startIndex === 'number' && typeof next.endIndex === 'number') {
-                  const isFullRange = next.startIndex === 0 && next.endIndex === data.length - 1;
-                  const currentlyFull = brushRange === null || (brushRange.startIndex === 0 && brushRange.endIndex === data.length - 1);
-                  // Ignore Brush's initial/default narrow range so we stay 100% zoomed out on load
-                  if (isFullRange || !currentlyFull) {
-                    setBrushRange({ startIndex: next.startIndex, endIndex: next.endIndex });
+                  const clamped = clampRangeToMinEvents(
+                    next.startIndex,
+                    next.endIndex,
+                    data,
+                    events,
+                    MIN_EVENTS_FOR_RISK
+                  );
+                  setBrushRange({ startIndex: clamped.startIndex, endIndex: clamped.endIndex });
+                  if (onBrushChange && events.length > 0) {
+                    const visibleBuckets = data.slice(clamped.startIndex, clamped.endIndex + 1);
+                    const visibleMinutes = new Set(visibleBuckets.map((d) => d.minute));
+                    const eventsInRange = events.filter((e) =>
+                      visibleMinutes.has(format(e.time, 'yyyy-MM-dd HH:mm'))
+                    );
+                    if (eventsInRange.length >= MIN_EVENTS_FOR_RISK) onBrushChange(eventsInRange);
                   }
                 }
               }}
