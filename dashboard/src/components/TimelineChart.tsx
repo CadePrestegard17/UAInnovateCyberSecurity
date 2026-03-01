@@ -39,7 +39,7 @@ export function TimelineChart({ events }: Props) {
       }
       if (e.source === 'auth') b.auth += 1;
       else if (e.source === 'dns') b.dns += 1;
-      else if (e.source === 'firewall') b.firewall += 1;
+      else if (e.source === 'firewall' && (e.action ?? '').toLowerCase() === 'deny') b.firewall += 1;
       else if (e.source === 'malware') b.malware += 1;
     }
 
@@ -52,7 +52,7 @@ export function TimelineChart({ events }: Props) {
     return (
       <div className="timeline-chart">
         <h3>Events per minute</h3>
-        <p className="timeline-chart__empty">No events in time range.</p>
+        <p className="timeline-chart__empty">No events in this incident.</p>
       </div>
     );
   }
@@ -60,6 +60,7 @@ export function TimelineChart({ events }: Props) {
   return (
     <div className="timeline-chart">
       <h3>Events per minute (by source)</h3>
+      <p className="timeline-chart__desc">Selected incident only. Changes when you pick another.</p>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -68,12 +69,13 @@ export function TimelineChart({ events }: Props) {
           <Tooltip
             contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
             labelStyle={{ color: 'var(--text)' }}
+            labelFormatter={(_, payload) => (payload?.[0]?.payload as Bucket)?.minute ?? ''}
           />
           <Legend />
           <Bar dataKey="auth" stackId="a" fill="#3b82f6" name="Auth" radius={[0, 0, 0, 0]} />
-          <Bar dataKey="dns" stackId="a" fill="#10b981" name="DNS" radius={[0, 0, 0, 0]} />
-          <Bar dataKey="firewall" stackId="a" fill="#f59e0b" name="Firewall" radius={[0, 0, 0, 0]} />
-          <Bar dataKey="malware" stackId="a" fill="#ef4444" name="Malware" radius={[0, 4, 4, 0]} />
+          <Bar dataKey="dns" stackId="a" fill="#22d3ee" name="DNS events" radius={[0, 0, 0, 0]} />
+          <Bar dataKey="firewall" stackId="a" fill="#f59e0b" name="Firewall denials" radius={[0, 0, 0, 0]} />
+          <Bar dataKey="malware" stackId="a" fill="#8b5cf6" name="Malware" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
