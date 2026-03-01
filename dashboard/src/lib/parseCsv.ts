@@ -86,7 +86,7 @@ export function normalizeAllLogs(
     events.push({
       time: parseTimestamp(row.timestamp),
       source: 'auth',
-      entity_ip: row.source_ip,
+      entity_ip: (row.source_ip ?? '').trim() || undefined,
       user: row.user,
       action: row.action,
       raw: row,
@@ -97,7 +97,7 @@ export function normalizeAllLogs(
     events.push({
       time: parseTimestamp(row.timestamp),
       source: 'dns',
-      entity_ip: row.client_ip,
+      entity_ip: (row.client_ip ?? '').trim() || undefined,
       domain: row.domain_queried,
       raw: row,
     });
@@ -110,7 +110,7 @@ export function normalizeAllLogs(
     events.push({
       time: parseTimestamp(row.timestamp),
       source: 'firewall',
-      entity_ip: row.source_ip,
+      entity_ip: (row.source_ip ?? '').trim() || undefined,
       destination_ip: row.destination_ip,
       destination_port: Number.isFinite(port) ? port : undefined,
       action: row.action,

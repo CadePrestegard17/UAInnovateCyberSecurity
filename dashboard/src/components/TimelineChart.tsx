@@ -25,16 +25,22 @@ function isFailedLogin(e: { source: string; action?: string }): boolean {
   return e.source === 'auth' && a === 'failed login';
 }
 
-type Bucket = {
+type RawBucket = {
   minute: string;
-  /** Auth events that are NOT failed logins (success, etc.) */
   authSuccess: number;
   dns: number;
   ipDenials: number;
   firewall: number;
   malware: number;
-  /** Total events (for brush overview strip) */
   total: number;
+};
+
+type Bucket = RawBucket & {
+  authSuccessPct: number;
+  dnsPct: number;
+  ipDenialsPct: number;
+  firewallPct: number;
+  malwarePct: number;
 };
 
 const COLORS = {
@@ -49,7 +55,7 @@ const TOOLTIP_LABELS: Record<keyof typeof COLORS, string> = {
   authSuccess: 'Successful auth',
   dns: 'DNS events',
   ipDenials: 'Failed logins',
-  firewall: 'Firewall denials',
+  firewall: 'Firewall',
   malware: 'Malware',
 };
 
@@ -58,6 +64,11 @@ type DataKey = (typeof DATA_KEYS)[number];
 
 function isDataKey(k: string): k is DataKey {
   return DATA_KEYS.includes(k as DataKey);
+}
+
+function getDisplayLabel(key: string): string {
+  const base = key.replace(/Pct$/, '') as DataKey;
+  return isDataKey(base) ? TOOLTIP_LABELS[base] : key;
 }
 
 function TimelineTooltipContent({
@@ -87,13 +98,15 @@ function TimelineTooltipContent({
       </div>
       {payload.map((entry) => {
         const key = entry.dataKey;
-        const color = isDataKey(key) ? COLORS[key] : 'var(--text)';
-        const displayLabel = isDataKey(key) ? TOOLTIP_LABELS[key] : key;
-        const value = typeof entry.value === 'number' ? entry.value : 0;
+        const baseKey = key.replace(/Pct$/, '') as DataKey;
+        const color = isDataKey(baseKey) ? COLORS[baseKey] : 'var(--text)';
+        const displayLabel = getDisplayLabel(key);
+        const bucket = entry.payload;
+        const count = isDataKey(baseKey) ? (bucket as Bucket)[baseKey] : 0;
         return (
           <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, color: color }}>
             <span>{displayLabel} :</span>
-            <span>{value}</span>
+            <span>{count}</span>
           </div>
         );
       })}
@@ -140,14 +153,17 @@ function clampRangeToMinEvents(
 
 // Start 100% zoomed out (show full range)
 
+type ViewMode = 'absolute' | 'percentage';
+
 export function TimelineChart({ events, onBrushChange }: Props) {
   const [brushRange, setBrushRange] = useState<{ startIndex: number; endIndex: number } | null>(null);
   const [scrollbarDragging, setScrollbarDragging] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('percentage');
   const scrollbarTrackRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef({ brushStart: 0, clientX: 0 });
 
   const { data, summary } = useMemo(() => {
-    const buckets = new Map<string, Bucket>();
+    const buckets = new Map<string, RawBucket>();
     const getKey = (d: Date) => format(d, 'yyyy-MM-dd HH:mm');
 
     for (const e of events) {
@@ -162,12 +178,23 @@ export function TimelineChart({ events, onBrushChange }: Props) {
         if (isFailedLogin(e)) b.ipDenials += 1;
         else b.authSuccess += 1;
       } else if (e.source === 'dns') b.dns += 1;
-      else if (e.source === 'firewall' && (e.action ?? '').toLowerCase() === 'deny') b.firewall += 1;
+      else if (e.source === 'firewall') b.firewall += 1;
       else if (e.source === 'malware') b.malware += 1;
     }
 
     const sorted = Array.from(buckets.values())
-      .map((b) => ({ ...b, total: b.authSuccess + b.dns + b.ipDenials + b.firewall + b.malware }))
+      .map((b) => {
+        const total = b.authSuccess + b.dns + b.ipDenials + b.firewall + b.malware;
+        return {
+          ...b,
+          total,
+          authSuccessPct: total > 0 ? (b.authSuccess / total) * 100 : 0,
+          dnsPct: total > 0 ? (b.dns / total) * 100 : 0,
+          ipDenialsPct: total > 0 ? (b.ipDenials / total) * 100 : 0,
+          firewallPct: total > 0 ? (b.firewall / total) * 100 : 0,
+          malwarePct: total > 0 ? (b.malware / total) * 100 : 0,
+        };
+      })
       .sort((a, b) => a.minute.localeCompare(b.minute));
 
     // Plain-language summary so the chart "tells you something"
@@ -279,6 +306,38 @@ export function TimelineChart({ events, onBrushChange }: Props) {
       <p className="timeline-chart__desc">
         Stacked events per minute (no double-count). Light blue = failed logins; blue = successful auth; teal = DNS; orange-yellow = firewall; purple = malware.
       </p>
+      <div className="timeline-chart__view-toggle" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>View:</span>
+        <button
+          type="button"
+          onClick={() => setViewMode('percentage')}
+          style={{
+            padding: '4px 10px',
+            fontSize: 12,
+            cursor: 'pointer',
+            fontWeight: viewMode === 'percentage' ? 600 : 400,
+            opacity: viewMode === 'percentage' ? 1 : 0.7,
+          }}
+        >
+          % of total
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('absolute')}
+          style={{
+            padding: '4px 10px',
+            fontSize: 12,
+            cursor: 'pointer',
+            fontWeight: viewMode === 'absolute' ? 600 : 400,
+            opacity: viewMode === 'absolute' ? 1 : 0.7,
+          }}
+        >
+          Count
+        </button>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {viewMode === 'percentage' ? 'Shows all categories proportionally' : 'Dominant category may hide others'}
+        </span>
+      </div>
       {summary && (
         <p className="timeline-chart__summary" role="status">
           {summary}
@@ -431,14 +490,64 @@ export function TimelineChart({ events, onBrushChange }: Props) {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="minute" tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
-          <YAxis tick={{ fontSize: 11 }} stroke="var(--text-muted)" label={{ value: 'Events per minute', angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: 'var(--text-muted)' } }} />
+          <YAxis
+            tick={{ fontSize: 11 }}
+            stroke="var(--text-muted)"
+            domain={viewMode === 'percentage' ? [0, 100] : undefined}
+            label={{
+              value: viewMode === 'percentage' ? '% of events' : 'Events per minute',
+              angle: -90,
+              position: 'insideLeft',
+              style: { fontSize: 11, fill: 'var(--text-muted)' },
+            }}
+          />
           <Tooltip content={<TimelineTooltipContent />} />
           <Legend />
-          <Area type="monotone" dataKey="authSuccess" stackId="1" stroke={COLORS.authSuccess} fill="url(#timeline-auth-success)" name="Auth (success)" strokeWidth={1.5} />
-          <Area type="monotone" dataKey="dns" stackId="1" stroke={COLORS.dns} fill="url(#timeline-dns)" name="DNS events" strokeWidth={1.5} />
-          <Area type="monotone" dataKey="firewall" stackId="1" stroke={COLORS.firewall} fill="url(#timeline-firewall)" name="Firewall denials" strokeWidth={1.5} />
-          <Area type="monotone" dataKey="ipDenials" stackId="1" stroke={COLORS.ipDenials} fill="url(#timeline-ipdenials)" name="IP denials" strokeWidth={2} />
-          <Area type="monotone" dataKey="malware" stackId="1" stroke={COLORS.malware} fill="url(#timeline-malware)" name="Malware" strokeWidth={1.5} />
+          <Area
+            type="natural"
+            dataKey={viewMode === 'percentage' ? 'authSuccessPct' : 'authSuccess'}
+            stackId="1"
+            stroke={COLORS.authSuccess}
+            fill="url(#timeline-auth-success)"
+            name="Auth (success)"
+            strokeWidth={1.5}
+          />
+          <Area
+            type="natural"
+            dataKey={viewMode === 'percentage' ? 'dnsPct' : 'dns'}
+            stackId="1"
+            stroke={COLORS.dns}
+            fill="url(#timeline-dns)"
+            name="DNS events"
+            strokeWidth={1.5}
+          />
+          <Area
+            type="natural"
+            dataKey={viewMode === 'percentage' ? 'firewallPct' : 'firewall'}
+            stackId="1"
+            stroke={COLORS.firewall}
+            fill="url(#timeline-firewall)"
+            name="Firewall"
+            strokeWidth={1.5}
+          />
+          <Area
+            type="natural"
+            dataKey={viewMode === 'percentage' ? 'ipDenialsPct' : 'ipDenials'}
+            stackId="1"
+            stroke={COLORS.ipDenials}
+            fill="url(#timeline-ipdenials)"
+            name="IP denials"
+            strokeWidth={2}
+          />
+          <Area
+            type="natural"
+            dataKey={viewMode === 'percentage' ? 'malwarePct' : 'malware'}
+            stackId="1"
+            stroke={COLORS.malware}
+            fill="url(#timeline-malware)"
+            name="Malware"
+            strokeWidth={1.5}
+          />
           {data.length > 1 && (
             <Brush
               dataKey="minute"

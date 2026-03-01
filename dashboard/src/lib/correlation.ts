@@ -144,9 +144,12 @@ function detectCaseA(
     `Search SIEM for lateral movement from ${bestIp}.`,
   ];
 
-  const related_events = allEvents.filter(
-    (e) => e.source === 'auth' && e.entity_ip === bestIp
-  );
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+  const related_events = allEvents.filter((e) => {
+    const t = e.time.getTime();
+    return t >= startMs && t <= endMs;
+  });
 
   return {
     id: 'CASE_A',
@@ -251,9 +254,12 @@ function detectCaseB(
     `Search SIEM for lateral movement from ${rec.ip}.`,
   ];
 
-  const related_events = allEvents.filter(
-    (e) => e.source === 'dns' && e.entity_ip === rec.ip && e.domain === rec.domain
-  );
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+  const related_events = allEvents.filter((e) => {
+    const t = e.time.getTime();
+    return t >= startMs && t <= endMs;
+  });
 
   return {
     id: 'CASE_B',
