@@ -22,7 +22,15 @@ import { IpOverTimeChart } from './components/IpOverTimeChart';
 import { TopTables } from './components/TopTables';
 import { EventsTable } from './components/EventsTable';
 import { HowToUse } from './components/HowToUse';
+import { AlertSignupSection } from './components/AlertSignupSection';
 import './App.css';
+
+const ALERT_PROMPT_DISMISSED_KEY = 'soc-alert-prompt-dismissed';
+
+const HIGH_RISK_SEVERITY = 70;
+
+const ALERT_PHONE_KEY = 'soc-alert-phone';
+const ALERT_EMAIL_KEY = 'soc-alert-email';
 
 function applyData(
   a: AuthLogRow[],
@@ -39,7 +47,7 @@ function applyData(
   setRisk: (v: RiskResponse | null) => void,
   setRiskLoading: (v: boolean) => void,
   setRiskError: (v: string | null) => void
-) {
+): Incident[] {
   setAuth(a);
   setDns(d);
   setFirewall(f);
@@ -69,7 +77,15 @@ function applyData(
     setRisk(null);
     setRiskError(null);
   }
+  return incs;
 }
+
+function buildAlertMessage(incident: Incident): string {
+  const firstHighlight = incident.highlights[0] ?? incident.title;
+  return `SOC Alert: ${incident.title} (Severity ${incident.severity}). ${firstHighlight} Entity: ${incident.primary_entity}. Check dashboard.`;
+}
+
+const alertApiUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ALERT_API_URL) || 'http://localhost:3001';
 
 export default function App() {
   const [auth, setAuth] = useState<AuthLogRow[]>([]);
@@ -83,6 +99,29 @@ export default function App() {
   const [dataSource, setDataSource] = useState<DataSource>('bundled');
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [highRiskIncident, setHighRiskIncident] = useState<Incident | null>(null);
+  const [alertPhone, setAlertPhone] = useState<string>(() => {
+    try {
+      return localStorage.getItem(ALERT_PHONE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [alertEmail, setAlertEmail] = useState<string>(() => {
+    try {
+      return localStorage.getItem(ALERT_EMAIL_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [alertToast, setAlertToast] = useState<{ type: 'sent' | 'failed' | 'no_phone'; message: string } | null>(null);
+  const [alertPromptDismissed, setAlertPromptDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem(ALERT_PROMPT_DISMISSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [risk, setRisk] = useState<RiskResponse | null>(null);
   const [riskLoading, setRiskLoading] = useState(false);
   const [riskError, setRiskError] = useState<string | null>(null);
@@ -94,6 +133,33 @@ export default function App() {
   const WINDOW_MS = 15 * 60 * 1000;
   const REPLAY_DURATION_MS = 60 * 1000; // 60s wall clock for full replay
   const REPLAY_TICK_MS = 2000; // re-predict every 2s
+
+  const dismissAlertPrompt = useCallback(() => {
+    setAlertPromptDismissed(true);
+    try {
+      sessionStorage.setItem(ALERT_PROMPT_DISMISSED_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const persistAlertPhone = useCallback((phone: string) => {
+    setAlertPhone(phone);
+    try {
+      localStorage.setItem(ALERT_PHONE_KEY, phone);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const persistAlertEmail = useCallback((email: string) => {
+    setAlertEmail(email);
+    try {
+      localStorage.setItem(ALERT_EMAIL_KEY, email);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const startReplay = useCallback(() => {
     if (allEvents.length === 0) return;
@@ -172,6 +238,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     setUploadError(null);
+    setHighRiskIncident(null);
     try {
       const [a, d, f, m] = await Promise.all([
         loadAuthLogs(),
@@ -179,8 +246,10 @@ export default function App() {
         loadFirewallLogs(),
         loadMalwareAlerts(),
       ]);
-      applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident, setRisk, setRiskLoading, setRiskError);
+      const incs = applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident, setRisk, setRiskLoading, setRiskError);
       setDataSource('bundled');
+      const highRisk = incs.find((i) => i.severity >= HIGH_RISK_SEVERITY) ?? incs.reduce<Incident | null>((best, i) => (i.severity > (best?.severity ?? 0) ? i : best), null);
+      if (highRisk && highRisk.severity >= HIGH_RISK_SEVERITY) setHighRiskIncident(highRisk);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
@@ -192,11 +261,14 @@ export default function App() {
     setLoading(true);
     setError(null);
     setUploadError(null);
+    setHighRiskIncident(null);
     uploadedFilesRef.current = files;
     try {
       const [a, d, f, m] = await loadFromFiles(files);
-      applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident, setRisk, setRiskLoading, setRiskError);
+      const incs = applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident, setRisk, setRiskLoading, setRiskError);
       setDataSource('uploaded');
+      const highRisk = incs.find((i) => i.severity >= HIGH_RISK_SEVERITY) ?? incs.reduce<Incident | null>((best, i) => (i.severity > (best?.severity ?? 0) ? i : best), null);
+      if (highRisk && highRisk.severity >= HIGH_RISK_SEVERITY) setHighRiskIncident(highRisk);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Failed to parse uploaded files');
     } finally {
@@ -208,13 +280,89 @@ export default function App() {
     if (dataSource === 'bundled') {
       loadBundled();
     } else if (uploadedFilesRef.current) {
+      setHighRiskIncident(null);
       loadFromFiles(uploadedFilesRef.current)
         .then(([a, d, f, m]) => {
-          applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident, setRisk, setRiskLoading, setRiskError);
+          const incs = applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident, setRisk, setRiskLoading, setRiskError);
+          const highRisk = incs.find((i) => i.severity >= HIGH_RISK_SEVERITY) ?? incs.reduce<Incident | null>((best, i) => (i.severity > (best?.severity ?? 0) ? i : best), null);
+          if (highRisk && highRisk.severity >= HIGH_RISK_SEVERITY) setHighRiskIncident(highRisk);
         })
         .catch((err) => setUploadError(err instanceof Error ? err.message : 'Reload failed'));
     }
   }, [dataSource, loadBundled]);
+
+  useEffect(() => {
+    if (!highRiskIncident) return;
+    const phone = alertPhone.trim();
+    const email = alertEmail.trim();
+    if (!phone && !email) {
+      setAlertToast({ type: 'no_phone', message: 'High-risk incident detected. Add a phone or email in the sidebar to get alerts next time.' });
+      setHighRiskIncident(null);
+      return;
+    }
+    const message = buildAlertMessage(highRiskIncident);
+    let cancelled = false;
+    (async () => {
+      const parts: string[] = [];
+      let hasFailure = false;
+      if (email) {
+        try {
+          const res = await fetch(`${alertApiUrl}/api/alert-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: email, message }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (cancelled) return;
+          if (res.ok) parts.push(`Email sent to ${email}`);
+          else {
+            parts.push(`Email failed: ${data.error || res.status}`);
+            hasFailure = true;
+          }
+        } catch (err) {
+          if (!cancelled) {
+            parts.push(`Email failed: ${err instanceof Error ? err.message : 'Failed to send'}`);
+            hasFailure = true;
+          }
+        }
+      }
+      if (phone) {
+        try {
+          const res = await fetch(`${alertApiUrl}/api/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: phone, message }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (cancelled) return;
+          if (res.ok) parts.push(`SMS sent to ${phone}`);
+          else {
+            parts.push(`SMS failed: ${data.error || res.status}`);
+            hasFailure = true;
+          }
+        } catch (err) {
+          if (!cancelled) {
+            parts.push(`SMS failed: ${err instanceof Error ? err.message : 'Failed to send'}`);
+            hasFailure = true;
+          }
+        }
+      }
+      if (!cancelled) {
+        setAlertToast({
+          type: hasFailure ? 'failed' : 'sent',
+          message: parts.length ? parts.join('. ') : 'No alert sent.',
+        });
+        setHighRiskIncident(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [highRiskIncident, alertPhone, alertEmail]);
+
+  useEffect(() => {
+    if (!alertToast) return;
+    const t = window.setTimeout(() => setAlertToast(null), 6000);
+    return () => clearTimeout(t);
+  }, [alertToast]);
 
   useEffect(() => {
     loadBundled();
@@ -308,6 +456,12 @@ export default function App() {
             uploadError={uploadError}
             clearUploadError={() => setUploadError(null)}
           />
+          <AlertSignupSection
+            phone={alertPhone}
+            onPhoneChange={persistAlertPhone}
+            email={alertEmail}
+            onEmailChange={persistAlertEmail}
+          />
         </aside>
 
         <main className="main main--with-sidebar">
@@ -354,6 +508,44 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {!alertPhone.trim() && !alertPromptDismissed && (
+        <div className="alert-prompt-overlay" role="dialog" aria-labelledby="alert-prompt-title" aria-modal="true">
+          <div className="alert-prompt">
+            <button
+              type="button"
+              className="alert-prompt__close"
+              onClick={dismissAlertPrompt}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h2 id="alert-prompt-title" className="alert-prompt__title">Want to get text alerts for suspicious activity?</h2>
+            <p className="alert-prompt__desc">When we detect a high-risk incident, we can send you an SMS. Enter your phone number in the sidebar to the left (include country code, e.g. +15551234567).</p>
+            <button type="button" className="alert-prompt__dismiss" onClick={dismissAlertPrompt}>
+              Maybe later
+            </button>
+          </div>
+        </div>
+      )}
+
+      {alertToast && (
+        <div
+          className={`alert-toast alert-toast--${alertToast.type}`}
+          role="status"
+          aria-live="polite"
+        >
+          <span className="alert-toast__message">{alertToast.message}</span>
+          <button
+            type="button"
+            className="alert-toast__dismiss"
+            onClick={() => setAlertToast(null)}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }

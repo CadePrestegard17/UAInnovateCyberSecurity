@@ -1025,3 +1025,317 @@
   background: var(--surface);
   border-top: 1px solid var(--border);
 }
+
+/* High-risk SMS alert modal */
+.alert-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.alert-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.alert-modal__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.alert-modal__incident {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.alert-modal__entity {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.alert-modal__hint {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.alert-modal__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.alert-modal__input {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.alert-modal__error {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: #dc2626;
+}
+
+.alert-modal__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.alert-modal__btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.alert-modal__btn:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.alert-modal__btn--primary {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.alert-modal__btn--primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.alert-modal__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Sidebar: text alert signup */
+.alert-signup {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.alert-signup__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.alert-signup__desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.alert-signup__label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.alert-signup__label-text {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.alert-signup__input {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.alert-signup__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.alert-signup__save {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.alert-signup__save:hover {
+  background: var(--border);
+}
+
+.alert-signup__saved {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.alert-signup__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Dismissible popup: want text alerts? */
+.alert-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 1rem;
+}
+
+.alert-prompt {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem 2rem 1.5rem 1.5rem;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.2);
+}
+
+.alert-prompt__close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.alert-prompt__close:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.alert-prompt__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.alert-prompt__desc {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.alert-prompt__dismiss {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.alert-prompt__dismiss:hover {
+  background: var(--border);
+}
+
+/* Toast: alert sent / failed / no phone */
+.alert-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  max-width: 90%;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+}
+
+.alert-toast__message {
+  font-size: 0.9rem;
+}
+
+.alert-toast__dismiss {
+  padding: 0 0.25rem;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.alert-toast__dismiss:hover {
+  opacity: 1;
+}
+
+.alert-toast--sent {
+  background: #166534;
+  color: #fff;
+}
+
+.alert-toast--failed {
+  background: #991b1b;
+  color: #fff;
+}
+
+.alert-toast--no_phone {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
