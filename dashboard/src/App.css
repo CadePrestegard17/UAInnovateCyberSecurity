@@ -270,12 +270,100 @@
   font-size: 0.75rem;
   font-weight: 600;
   border-radius: 4px;
+  cursor: help;
 }
 
 .incident-list__badge.severity-critical { background: #7f1d1d; color: #fecaca; }
 .incident-list__badge.severity-high    { background: #78350f; color: #fed7aa; }
 .incident-list__badge.severity-medium  { background: #1e3a5f; color: #93c5fd; }
 .incident-list__badge.severity-low     { background: #1f2937; color: #d1d5db; }
+
+/* Severity badge + tooltip */
+.severity-badge-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.severity-tooltip-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  z-index: 20;
+  max-width: 320px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  white-space: normal;
+  pointer-events: none;
+}
+
+.severity-tooltip-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--border);
+}
+
+.severity-tooltip-bubble::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  margin-top: -1px;
+  border: 5px solid transparent;
+  border-top-color: var(--surface);
+}
+
+.severity-tooltip-bubble--fixed {
+  position: fixed;
+  width: max-content;
+  max-width: 320px;
+}
+
+/* Tooltip below badge (no portal – avoids black screen) */
+.severity-tooltip-bubble--below {
+  top: calc(100% + 10px);
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.severity-tooltip-bubble--below::after {
+  top: 0;
+  bottom: auto;
+  margin-top: -6px;
+  border-top-color: transparent;
+  border-bottom-color: var(--border);
+}
+
+.severity-tooltip-bubble--below::before {
+  top: 0;
+  bottom: auto;
+  margin-top: -6px;
+  border-top-color: transparent;
+  border-bottom-color: var(--surface);
+}
+
+.summary-card--severity-hover {
+  cursor: help;
+}
+
+/* Widen severity tooltip in summary cards: match severity card width and extend into time range */
+.summary-card--severity-hover .severity-tooltip-bubble {
+  min-width: 280px;
+  width: 340px;
+  max-width: 380px;
+}
 
 /* Summary cards */
 .panel-section {
@@ -297,6 +385,27 @@
 
 .summary-card--full {
   grid-column: 1 / -1;
+}
+
+.summary-card--malware-alert {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.summary-card--malware-alert .summary-card__label {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.summary-card__value--malware {
+  color: #fca5a5;
+}
+
+.summary-card__malware-desc {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .summary-card__label {
@@ -324,6 +433,7 @@
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   font-size: 0.9rem;
+  cursor: help;
 }
 
 .summary-card__badge.severity-critical { background: #7f1d1d; color: #fecaca; }
@@ -340,13 +450,148 @@
 }
 
 .timeline-chart h3 {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.25rem;
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
 }
 
+.timeline-chart__desc {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .timeline-chart__empty {
+  margin: 0;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Time correlation (all sources timeline + spikes) */
+.time-correlation {
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.time-correlation h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.time-correlation__legend-desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.time-correlation__legend-main {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.time-correlation__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.time-correlation__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.time-correlation__spike-legend {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.time-correlation__empty {
+  margin: 0;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* IP correlation */
+.ip-correlation {
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.ip-correlation h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ip-correlation__legend-desc {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.ip-correlation__alarm-legend {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.ip-correlation__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.ip-correlation__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ip-correlation__empty {
+  margin: 0;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* IP over time */
+.ip-over-time {
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.ip-over-time h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ip-over-time__legend-desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.ip-over-time__empty {
   margin: 0;
   padding: 2rem;
   color: var(--text-muted);
@@ -490,9 +735,9 @@
 }
 
 .events-table__source--auth { background: rgba(59, 130, 246, 0.2); }
-.events-table__source--dns { background: rgba(16, 185, 129, 0.2); }
+.events-table__source--dns { background: rgba(34, 211, 238, 0.25); }
 .events-table__source--firewall { background: rgba(245, 158, 11, 0.2); }
-.events-table__source--malware { background: rgba(239, 68, 68, 0.2); }
+.events-table__source--malware { background: rgba(139, 92, 246, 0.2); }
 
 .events-table__count {
   margin: 0.5rem 0 0;

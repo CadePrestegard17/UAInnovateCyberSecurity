@@ -9,12 +9,14 @@ import {
 } from './lib/csv';
 import type { CsvFileSet } from './lib/csv';
 import { buildIncidents } from './lib/correlation';
-import type { AuthLogRow, DnsLogRow, FirewallLogRow, MalwareAlertRow } from './lib/types';
+import type { AuthLogRow, DnsLogRow, FirewallLogRow, MalwareAlertRow, NormalizedEvent } from './lib/types';
 import type { Incident } from './lib/correlation';
 import { IncidentList } from './components/IncidentList';
 import { LoadCsvSection, type DataSource } from './components/LoadCsvSection';
 import { SummaryCards } from './components/SummaryCards';
 import { TimelineChart } from './components/TimelineChart';
+import { TimeCorrelationChart } from './components/TimeCorrelationChart';
+import { IpOverTimeChart } from './components/IpOverTimeChart';
 import { TopTables } from './components/TopTables';
 import { EventsTable } from './components/EventsTable';
 import { HowToUse } from './components/HowToUse';
@@ -29,6 +31,7 @@ function applyData(
   setDns: (v: DnsLogRow[]) => void,
   setFirewall: (v: FirewallLogRow[]) => void,
   setMalware: (v: MalwareAlertRow[]) => void,
+  setAllEvents: (v: NormalizedEvent[]) => void,
   setIncidents: (v: Incident[]) => void,
   setSelectedIncident: (v: Incident | null) => void
 ) {
@@ -37,6 +40,7 @@ function applyData(
   setFirewall(f);
   setMalware(m);
   const allEvents = normalizeAllLogs(a, d, f, m);
+  setAllEvents(allEvents);
   const incs = buildIncidents(allEvents, a, d, f, m);
   setIncidents(incs);
   setSelectedIncident(incs[0] ?? null);
@@ -47,6 +51,7 @@ export default function App() {
   const [dns, setDns] = useState<DnsLogRow[]>([]);
   const [firewall, setFirewall] = useState<FirewallLogRow[]>([]);
   const [malware, setMalware] = useState<MalwareAlertRow[]>([]);
+  const [allEvents, setAllEvents] = useState<NormalizedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -66,7 +71,7 @@ export default function App() {
         loadFirewallLogs(),
         loadMalwareAlerts(),
       ]);
-      applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setIncidents, setSelectedIncident);
+      applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident);
       setDataSource('bundled');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -82,7 +87,7 @@ export default function App() {
     uploadedFilesRef.current = files;
     try {
       const [a, d, f, m] = await loadFromFiles(files);
-      applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setIncidents, setSelectedIncident);
+      applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident);
       setDataSource('uploaded');
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Failed to parse uploaded files');
@@ -97,7 +102,7 @@ export default function App() {
     } else if (uploadedFilesRef.current) {
       loadFromFiles(uploadedFilesRef.current)
         .then(([a, d, f, m]) => {
-          applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setIncidents, setSelectedIncident);
+          applyData(a, d, f, m, setAuth, setDns, setFirewall, setMalware, setAllEvents, setIncidents, setSelectedIncident);
         })
         .catch((err) => setUploadError(err instanceof Error ? err.message : 'Reload failed'));
     }
@@ -182,6 +187,12 @@ export default function App() {
               </section>
               <section className="panel-section">
                 <TopTables incident={selectedIncident} auth={auth} dns={dns} firewall={firewall} />
+              </section>
+              <section className="panel-section">
+                <TimeCorrelationChart events={allEvents} />
+              </section>
+              <section className="panel-section">
+                <IpOverTimeChart events={allEvents} />
               </section>
               <section className="panel-section">
                 <EventsTable events={selectedIncident.related_events} />

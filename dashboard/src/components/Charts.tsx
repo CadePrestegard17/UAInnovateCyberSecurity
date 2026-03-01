@@ -12,7 +12,7 @@ import {
 import type { AuthLogRow } from '../lib/csv';
 import type { DnsLogRow } from '../lib/csv';
 import type { FirewallLogRow } from '../lib/csv';
-const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const CHART_COLORS = ['#3b82f6', '#22d3ee', '#f59e0b', '#8b5cf6', '#ef4444'];
 
 export function AuthByUserChart({ data }: { data: AuthLogRow[] }) {
   const byUser = data.reduce<Record<string, number>>((acc, row) => {
