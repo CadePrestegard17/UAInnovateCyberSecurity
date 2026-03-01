@@ -136,6 +136,7 @@ function clampRangeToMinEvents(
     else if (start > 0) start -= 1;
   }
   return { startIndex: start, endIndex: end };
+}
 
 // Start 100% zoomed out (show full range)
 
