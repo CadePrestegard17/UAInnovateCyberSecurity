@@ -282,6 +282,20 @@
   margin-bottom: 1.5rem;
 }
 
+.incident-focus {
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.incident-focus__text {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -408,6 +422,13 @@
 
 .top-tables__mono {
   font-family: ui-monospace, monospace;
+}
+
+.top-tables__empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 0.75rem !important;
 }
 
 /* Events table */

@@ -146,6 +146,11 @@ export function TopTables({ incident, auth, dns, firewall }: Props) {
 
       <div className="top-tables__panel">
         <h3>DNS — top domains{primaryEntity ? ` (${primaryEntity})` : ''}</h3>
+        <p className="top-tables__beacon">
+          {primaryEntity
+            ? 'Domains queried by this IP (suspect or infected host). For beaconing, high counts indicate C2/phishing; for brute-force, shows what the attacker or compromised host accessed.'
+            : 'Domains across all clients.'}
+        </p>
         {dnsBeaconFreq && (
           <p className="top-tables__beacon">
             Beacon frequency: {dnsBeaconFreq.total} queries over {dnsBeaconFreq.spanMinutes.toFixed(0)} min
@@ -161,12 +166,22 @@ export function TopTables({ incident, auth, dns, firewall }: Props) {
               </tr>
             </thead>
             <tbody>
-              {dnsTopDomains.map(({ domain, count }) => (
-                <tr key={domain}>
-                  <td>{domain}</td>
-                  <td>{count}</td>
+              {dnsTopDomains.length > 0 ? (
+                dnsTopDomains.map(({ domain, count }) => (
+                  <tr key={domain}>
+                    <td>{domain}</td>
+                    <td>{count}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={2} className="top-tables__empty">
+                    {primaryEntity
+                      ? `No DNS queries from ${primaryEntity} in this dataset. (Common for brute-force: attacker IP may be external and not appear as a DNS client.)`
+                      : 'No DNS data.'}
+                  </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -174,6 +189,11 @@ export function TopTables({ incident, auth, dns, firewall }: Props) {
 
       <div className="top-tables__panel">
         <h3>Firewall — top destination_ip:port{primaryEntity ? ` (from ${primaryEntity})` : ''}</h3>
+        <p className="top-tables__beacon">
+          {primaryEntity
+            ? 'Outbound connections from this IP: where it connected and how many were allowed vs denied. For beaconing, repeated allows to the same dest can indicate C2 or exfil.'
+            : 'Outbound connections (source → destination).'}
+        </p>
         <p className="top-tables__beacon">
           Allowed: {firewallTotals.allow} — Denied: {firewallTotals.deny}
         </p>
@@ -187,13 +207,23 @@ export function TopTables({ incident, auth, dns, firewall }: Props) {
               </tr>
             </thead>
             <tbody>
-              {firewallTopDests.map(({ dest, allow, deny }) => (
-                <tr key={dest}>
-                  <td className="top-tables__mono">{dest}</td>
-                  <td>{allow}</td>
-                  <td>{deny}</td>
+              {firewallTopDests.length > 0 ? (
+                firewallTopDests.map(({ dest, allow, deny }) => (
+                  <tr key={dest}>
+                    <td className="top-tables__mono">{dest}</td>
+                    <td>{allow}</td>
+                    <td>{deny}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={3} className="top-tables__empty">
+                    {primaryEntity
+                      ? `No firewall traffic from ${primaryEntity} in this dataset. (Common for brute-force: attacker IP may be external; firewall often logs internal hosts as source.)`
+                      : 'No firewall data.'}
+                  </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
