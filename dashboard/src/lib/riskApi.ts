@@ -6,7 +6,7 @@ import type { NormalizedEvent } from './types';
 
 const RISK_API_URL =
   (typeof import.meta.env !== 'undefined' && (import.meta.env as Record<string, string>).VITE_RISK_API_URL) ||
-  'http://localhost:8000';
+  (import.meta.env?.MODE === 'production' ? 'https://uainnovatecybersecurity.onrender.com' : 'http://localhost:8000');
 
 export type RiskResponse = {
   anomalyScore: number;
