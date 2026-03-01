@@ -174,6 +174,16 @@ export default function App() {
         <main className="main main--with-sidebar">
           {selectedIncident ? (
             <>
+              <section className="panel-section incident-focus">
+                <p className="incident-focus__text">
+                  <strong>For this incident we're focused on this IP: {selectedIncident.primary_entity}</strong>
+                  {selectedIncident.id === 'CASE_A' ? (
+                    <> — That's the <strong>attacker</strong> (mass login / brute-force). The tables below show this attacker's auth attempts, DNS lookups, and firewall connections.</>
+                  ) : (
+                    <> — That's the <strong>suspected infected host</strong> (beaconing). The tables below show this host's DNS queries and firewall traffic.</>
+                  )}
+                </p>
+              </section>
               <section className="panel-section">
                 <SummaryCards incident={selectedIncident} malware={malware} />
               </section>
